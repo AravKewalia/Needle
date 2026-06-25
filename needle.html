@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NeedleNav — Needle Viewer</title>
+<style>
+  :root{
+    --bg:#f7f9fb;
+    --panel:#ffffff;
+    --accent:#1f77b4;
+    --accent2:#ff7f0e;
+    --muted:#666;
+    --field:#e9f2fb;
+    --card-radius:10px;
+    --logo-blue: #0f6fc1;
+    --logo-accent: #ff7f0e;
+  }
+  body{ font-family: "Segoe UI", Roboto, Arial, sans-serif; margin:16px; background:var(--bg); color:#111; }
+  header { display:flex; align-items:center; gap:18px; margin-bottom:12px; }
+  /* Logo container */
+  .logo {
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .logo svg { display:block; }
+  .brand {
+    font-weight:700;
+    font-size:20px;
+    color:var(--logo-blue);
+    letter-spacing:0.3px;
+  }
+  .tag { font-size:12px; color:var(--muted); margin-top:4px; }
+
+  h1{font-size:18px; margin:0;} /* kept small because we use logo */
+  .app { display:grid; grid-template-columns:360px 1fr; gap:18px; align-items:start; }
+  .panel { background:var(--panel); border-radius:var(--card-radius); padding:14px; box-shadow:0 1px 6px rgba(20,30,40,0.06); }
+  .inputs { display:flex; flex-direction:column; gap:12px; }
+  .group { background:#fbfdff; padding:10px; border-radius:8px; border:1px solid #eef4fb; }
+  .group h2{font-size:14px; margin:0 0 8px 0;}
+  .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+  label { width:84px; font-size:13px; color:var(--muted); }
+  input[type="number"], input[type="text"]{ width:120px; padding:8px 10px; font-size:14px; border-radius:6px; border:1px solid #cfe6ff; background:var(--field); text-align:center; }
+  .controls { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  button { background:#fff; border:1px solid #cfd8df; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px; }
+  button.primary { background:var(--accent); color:white; border-color:var(--accent); }
+  .viewer { display:flex; justify-content:center; align-items:center; }
+  #canvasWrap { background:#fff; border-radius:8px; padding:12px; box-shadow:0 1px 6px rgba(10,20,30,0.04); }
+  canvas { background:#fff; display:block; border-radius:4px; }
+  .stats { display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; }
+  .stat { background:#fafafa; padding:8px 10px; border-radius:8px; border:1px solid #f0f0f0; font-size:13px; color:#222; }
+  @media(max-width:920px){ .app { grid-template-columns:1fr; } .panel { width:100%; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo" aria-hidden="false">
+    <!-- Inline SVG logo for NeedleNav: stylized arc + needle compass + text -->
+    <svg width="72" height="48" viewBox="0 0 72 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NeedleNav logo">
+      <!-- background circle (subtle) -->
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#dff2ff"/>
+          <stop offset="1" stop-color="#ffffff"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="72" height="48" rx="8" fill="url(#g1)"/>
+      <!-- outer arc -->
+      <path d="M20 34
+               A14 14 0 0 1 48 14"
+            fill="none" stroke="var(--logo-accent)" stroke-width="3" stroke-linecap="round"/>
+      <!-- inner arc -->
+      <path d="M24 34
+               A10 10 0 0 1 44 18"
+            fill="none" stroke="var(--logo-blue)" stroke-width="3" stroke-linecap="round"/>
+      <!-- needle shaft (small) pointing left toward origin of arc -->
+      <line x1="16" y1="34" x2="24" y2="34" stroke="#333" stroke-width="2" stroke-linecap="round"/>
+      <!-- compass pointer/needle tip -->
+      <polygon points="46,10 50,6 52,10 46,10" fill="#333"/>
+      <!-- subtle center dot -->
+      <circle cx="24" cy="34" r="1.6" fill="#222"/>
+    </svg>
+
+    <div>
+      <div class="brand">NeedleNav</div>
+      <div class="tag">Needle arc visualization & export</div>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <div class="panel">
+    <div class="inputs">
+      <div class="group">
+        <h2>Needle 1</h2>
+        <div class="row"><label for="L1">L1 (total)</label><input id="L1" type="number" step="0.01" value="9" /></div>
+        <div class="row"><label for="A1">A1 (fraction)</label><input id="A1" type="number" step="0.001" value="0.75" /></div>
+        <div class="row"><label for="X1">X1 (shaft)</label><input id="X1" type="number" step="0.01" value="2" /></div>
+      </div>
+
+      <div class="group">
+        <h2>Needle 2</h2>
+        <div class="row"><label for="L2">L2 (total)</label><input id="L2" type="number" step="0.01" value="8" /></div>
+        <div class="row"><label for="A2">A2 (fraction)</label><input id="A2" type="number" step="0.001" value="0.73" /></div>
+        <div class="row"><label for="X2">X2 (shaft)</label><input id="X2" type="number" step="0.01" value="2" /></div>
+      </div>
+
+      <div class="group">
+        <h2>Settings</h2>
+        <div class="row"><label for="N">Points (N)</label><input id="N" type="number" step="1" value="200" min="2" /></div>
+        <div class="row"><label for="unit">Units</label><input id="unit" type="text" value="mm" /></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button id="redraw" class="primary">Redraw</button>
+          <button id="exportPNG">Export PNG</button>
+          <button id="reset">Reset</button>
+        </div>
+        <div class="controls" style="margin-top:8px;">
+          <label style="width:auto;"><input id="showGrid" type="checkbox" checked/> Show grid</label>
+          <label style="width:auto;"><input id="showTicks" type="checkbox" checked/> Show ticks</label>
+          <label style="width:auto;"><input id="clockwise" type="checkbox" /> Clockwise</label>
+          <label style="width:auto;"><input id="showTangent" type="checkbox" checked/> Show tangents</label>
+        </div>
+        <div style="margin-top:8px;color:var(--muted);font-size:13px">
+          A = fraction of full circle (e.g. 0.75 = 75%). L is total length (shaft + curved). Curved length = L − X.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div id="canvasWrap" class="panel viewer">
+      <canvas id="plotCanvas" width="720" height="720" role="img" aria-label="Needle plot"></canvas>
+    </div>
+
+    <div class="stats" style="margin-top:10px">
+      <div class="stat">Theta1: <span id="theta1">—</span> rad</div>
+      <div class="stat">Radius1: <span id="radius1">—</span></div>
+      <div class="stat">Theta2: <span id="theta2">—</span> rad</div>
+      <div class="stat">Radius2: <span id="radius2">—</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+ NeedleNav: Pure JS needle arc viewer (no external libs)
+ - Tangent = shaft (solid left), labeled ticks with units
+ - Logo is inline SVG in the header
+*/
+
+(function(){
+  const el = id => document.getElementById(id);
+  const L1i=el('L1'), A1i=el('A1'), X1i=el('X1');
+  const L2i=el('L2'), A2i=el('A2'), X2i=el('X2');
+  const Ni=el('N'), unitEl=el('unit');
+  const redrawBtn=el('redraw'), exportBtn=el('exportPNG'), resetBtn=el('reset');
+  const showGrid=el('showGrid'), showTicks=el('showTicks'), clockwiseCB=el('clockwise'), showTangent=el('showTangent');
+
+  const theta1Out=el('theta1'), radius1Out=el('radius1');
+  const theta2Out=el('theta2'), radius2Out=el('radius2');
+
+  const canvas = el('plotCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2;
+
+  // create arc arrays with center at (0,R) so arc starts right/up
+  function makeArcFromTotal(L_total, X, A, N, clockwise=false){
+    const curved = L_total - X;
+    if (!(curved > 0)) return { x:[0], y:[0], R:0, theta:0, curvedLen:curved };
+    const theta = 2 * Math.PI * A;
+    if (!(theta > 0 && isFinite(theta))) return { x:[0], y:[0], R:0, theta, curvedLen:curved };
+    const R = curved / theta;
+    const xs = new Array(N), ys = new Array(N);
+    const start = -Math.PI/2;
+    for (let i=0;i<N;i++){
+      const t = i/(N-1);
+      const phi = start + (clockwise ? -1 : 1) * t * theta;
+      xs[i] = R * Math.cos(phi);
+      ys[i] = R * (1 + Math.sin(phi));
+    }
+    return { x: xs, y: ys, R, theta, curvedLen:curved };
+  }
+
+  function computeMaxExtent(arc1, arc2, X1, X2){
+    const e1 = 2*Math.abs(arc1.R || 0);
+    const e2 = 2*Math.abs(arc2.R || 0);
+    let m = Math.max(e1, e2, Math.abs(X1||0), Math.abs(X2||0), 1);
+    return m * 1.15;
+  }
+
+  function worldToPixel(xw, yw, limit){
+    const scale = (W/2) / limit;
+    return { x: cx + xw*scale, y: cy - yw*scale };
+  }
+
+  function drawGrid(limit){
+    ctx.save();
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H);
+
+    if (showGrid.checked){
+      ctx.strokeStyle = '#eef2f5'; ctx.lineWidth = 1;
+      const steps=8;
+      for (let i=0;i<=steps;i++){
+        const px = (i/steps)*W;
+        ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,H); ctx.stroke();
+        const py = (i/steps)*H;
+        ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(W,py); ctx.stroke();
+      }
+    }
+
+    // axes
+    ctx.strokeStyle = '#c8d0d6'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+
+    // ticks & labels with units
+    if (showTicks.checked){
+      ctx.fillStyle = '#333'; ctx.font = '12px Segoe UI, Arial'; ctx.textAlign='center'; ctx.textBaseline='top';
+      const ticks=4; const unit = (unitEl.value||'').trim();
+      for (let i=-ticks;i<=ticks;i++){
+        const val = (limit * i / ticks);
+        const p = worldToPixel(val, 0, limit);
+        let txt = Math.abs(val) < 0.0005 ? '0' : val.toFixed(3);
+        if (unit) txt += ' ' + unit;
+        ctx.fillText(txt, p.x, cy + 6);
+
+        const q = worldToPixel(0, val, limit);
+        ctx.textAlign='right'; ctx.textBaseline='middle';
+        ctx.fillText(txt, cx - 10, q.y);
+        ctx.textAlign='center'; ctx.textBaseline='top';
+      }
+    }
+
+    // axis labels
+    ctx.fillStyle = '#222'; ctx.font = '14px Segoe UI, Arial'; ctx.textAlign='center';
+    const unit = (unitEl.value||'').trim();
+    ctx.fillText('X' + (unit ? ' ('+unit+')' : ''), W - 30, cy - 16);
+    ctx.save(); ctx.translate(cx + 18, 12); ctx.rotate(-Math.PI/2);
+    ctx.textAlign='center'; ctx.fillText('Y' + (unit ? ' ('+unit+')' : ''), 0, 0); ctx.restore();
+
+    ctx.restore();
+  }
+
+  function drawArc(arc, color, limit){
+    const xs=arc.x, ys=arc.y;
+    if (!xs || xs.length===0) return;
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath();
+    for (let i=0;i<xs.length;i++){
+      const p = worldToPixel(xs[i], ys[i], limit);
+      if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+    const p0 = worldToPixel(xs[0], ys[0], limit);
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p0.x,p0.y,4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawShaft(X, color, limit){
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    const p1 = worldToPixel(-X,0,limit), p2 = worldToPixel(0,0,limit);
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke(); ctx.restore();
+  }
+
+  function render(){
+    const L1_total = parseFloat(L1i.value)||0, A1 = parseFloat(A1i.value)||0, X1 = parseFloat(X1i.value)||0;
+    const L2_total = parseFloat(L2i.value)||0, A2 = parseFloat(A2i.value)||0, X2 = parseFloat(X2i.value)||0;
+    const N = Math.max(2, Math.round(parseFloat(Ni.value)||200));
+    const cw = Boolean(clockwiseCB.checked), showT = Boolean(showTangent.checked);
+
+    const arc1 = makeArcFromTotal(L1_total, X1, A1, N, cw);
+    const arc2 = makeArcFromTotal(L2_total, X2, A2, N, cw);
+
+    if (!(A1>0 && A2>0)){
+      ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#333'; ctx.font='16px Segoe UI'; ctx.textAlign='center'; ctx.fillText('Enter A1 and A2 > 0', cx, cy); return;
+    }
+    if (arc1.curvedLen <=0 || arc2.curvedLen <=0){
+      ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#b33'; ctx.font='15px Segoe UI'; ctx.textAlign='center';
+      ctx.fillText('Error: L must be larger than X for each needle (curved length = L - X > 0).', cx, cy);
+      ctx.fillStyle='#333'; ctx.font='13px Segoe UI'; ctx.fillText('Needle1 curved length=' + arc1.curvedLen.toFixed(3) + ' ; Needle2 curved length=' + arc2.curvedLen.toFixed(3), cx, cy+26);
+      return;
+    }
+
+    theta1Out.textContent = (arc1.theta||0).toFixed(6); radius1Out.textContent = (arc1.R||0).toFixed(6);
+    theta2Out.textContent = (arc2.theta||0).toFixed(6); radius2Out.textContent = (arc2.R||0).toFixed(6);
+
+    const limit = computeMaxExtent(arc1, arc2, X1, X2);
+    drawGrid(limit);
+
+    // draw arcs
+    drawArc(arc2, getComputedStyle(document.documentElement).getPropertyValue('--accent2')||'#ff7f0e', limit);
+    drawArc(arc1, getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#1f77b4', limit);
+
+    // draw grey shafts first
+    drawShaft(X2, '#888', limit);
+    drawShaft(X1, '#888', limit);
+
+    // overlay shafts in arc colors if tangents option checked
+    if (showT){
+      drawShaft(X2, getComputedStyle(document.documentElement).getPropertyValue('--accent2')||'#ff7f0e', limit);
+      drawShaft(X1, getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#1f77b4', limit);
+    }
+  }
+
+  // helpers & wiring
+  function makeArcFromTotal(L_total, X, A, N, clockwise=false){
+    const curved = L_total - X;
+    if (!(curved > 0)) return { x:[0], y:[0], R:0, theta:0, curvedLen:curved };
+    const theta = 2 * Math.PI * A;
+    if (!(theta > 0 && isFinite(theta))) return { x:[0], y:[0], R:0, theta, curvedLen:curved };
+    const R = curved / theta;
+    const xs = new Array(N), ys = new Array(N);
+    const start = -Math.PI/2;
+    for (let i=0;i<N;i++){
+      const t = i/(N-1);
+      const phi = start + (clockwise ? -1 : 1) * t * theta;
+      xs[i] = R * Math.cos(phi);
+      ys[i] = R * (1 + Math.sin(phi));
+    }
+    return { x: xs, y: ys, R, theta, curvedLen:curved };
+  }
+  function computeMaxExtent(arc1, arc2, X1, X2){
+    const e1 = 2*Math.abs(arc1.R || 0);
+    const e2 = 2*Math.abs(arc2.R || 0);
+    let m = Math.max(e1, e2, Math.abs(X1||0), Math.abs(X2||0), 1);
+    return m * 1.15;
+  }
+
+  const inputs = [L1i,A1i,X1i,L2i,A2i,X2i,Ni,unitEl,showGrid,showTicks,clockwiseCB,showTangent];
+  let timer=null; inputs.forEach(i=>i.addEventListener('input',()=>{ if(timer) clearTimeout(timer); timer=setTimeout(()=>{ render(); timer=null; },80); }));
+  redrawBtn.addEventListener('click', render);
+  exportBtn.addEventListener('click', ()=>{ const a=document.createElement('a'); a.download='needles.png'; a.href=canvas.toDataURL('image/png'); a.click(); });
+  resetBtn.addEventListener('click', ()=>{ L1i.value=9;A1i.value=0.75;X1i.value=2; L2i.value=8;A2i.value=0.73;X2i.value=2; Ni.value=200; unitEl.value='mm'; showGrid.checked=true; showTicks.checked=true; showTangent.checked=true; clockwiseCB.checked=false; render(); });
+
+  // initial draw
+  render();
+
+})();
+</script>
+</body>
+</html>
